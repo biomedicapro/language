@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reproductor con Subtítulos y Vocabulario</title>
+    <style>
+        /* Configuración base */
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #4a90e2, #c4e0e5);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            position: relative;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h1 {
+            font-size: 26px;
+            margin-bottom: 20px;
+            color: #f5f5f5;
+        }
+
+        .card p {
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: #e0e0e0;
+        }
+
+        .card label {
+            display: block;
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #f0f0f0;
+        }
+
+        .card input {
+            display: block;
+            margin-top: 10px;
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .card input::file-selector-button {
+            background-color: #5cacee;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .card input::file-selector-button:hover {
+            background-color: #3d94d6;
+        }
+
+        #play-button {
+            background: linear-gradient(135deg, #5cacee, #82d4f9);
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        #play-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Botones dentro del video */
+        .video-container-controls {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 1003; /* Por encima de subtitle-box y back-to-menu */
+        }
+
+        .video-container-controls button {
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+        }
+
+        .video-container-controls button:hover {
+            transform: scale(1.1);
+            background-color: #444;
+        }
+
+        /* Ícono para volver al menú de carga */
+        .back-to-menu {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+            z-index: 1002; /* Por encima del subtitle-box */
+            display: none; /* Oculto por defecto */
+        }
+
+        .back-to-menu:hover {
+            transform: scale(1.1);
+            background-color: #444;
+        }
+
+        /* Estilos para el video en pantalla completa */
+        #video-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 1000;
+        }
+
+        #video-player {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Caja de Subtítulos */
+        #subtitle-box {
+            position: fixed;
+            bottom: 10%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 1001; /* Por encima del video */
+            transition: background 0.3s ease, color 0.3s ease;
+            /* Removido pointer-events: none; */
+        }
+
+        /* Subtítulos en Alemán */
+        #subtitle-german {
+            background: rgba(0, 0, 0, 0.3); /* Fondo semi-transparente para modo oscuro */
+            color: #fff;
+            text-shadow: 2px 2px 4px #000;
+            width: 80%;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            pointer-events: auto; /* Permite interacción */
+        }
+
+        /* Subtítulos en Español */
+        #subtitle-spanish {
+            background: rgba(0, 0, 0, 0.3); /* Fondo semi-transparente para modo oscuro */
+            color: #fff;
+            text-shadow: 2px 2px 4px #000;
+            width: 80%;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        /* Estilos para modo claro */
+        body.light-mode #subtitle-german {
+            background: rgba(255, 255, 255, 0.3); /* Fondo semi-transparente para modo claro */
+            color: #000;
+            text-shadow: 2px 2px 4px #fff;
+        }
+
+        body.light-mode #subtitle-spanish {
+            background: rgba(255, 255, 255, 0.3); /* Fondo semi-transparente para modo claro */
+            color: #000;
+            text-shadow: 2px 2px 4px #fff;
+        }
+
+        /* Subtítulos Clickeables */
+        .clickable-word {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .clickable-word.selected {
+            text-decoration: underline;
+            background-color: rgba(255, 255, 0, 0.3); /* Fondo amarillo semi-transparente */
+            border-radius: 3px;
+        }
+
+        /* Hover durante selección por arrastre */
+        .clickable-word.hovered {
+            background-color: rgba(255, 255, 0, 0.3); /* Fondo amarillo semi-transparente */
+            border-radius: 3px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            color: #000;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .modal p {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .modal-close {
+            margin-top: 20px;
+            background: #d9534f;
+            color: #fff;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            background: #c9302c;
+        }
+
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* Barra Lateral para Vocabulario */
+        #vocab-sidebar {
+            position: fixed;
+            top: 0;
+            right: -300px; /* Oculto por defecto */
+            width: 300px;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: right 0.3s ease;
+            z-index: 1004; /* Por encima de todos los demás */
+            overflow-y: auto;
+        }
+
+        #vocab-sidebar.visible {
+            right: 0; /* Visible */
+        }
+
+        #vocab-sidebar h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        #vocab-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        #vocab-list li {
+            padding: 8px;
+            margin-bottom: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        #vocab-list li:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Botón para cerrar la barra lateral */
+        #close-vocab-sidebar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* Botones para limpiar y descargar vocabulario */
+        .vocab-sidebar-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .vocab-sidebar-buttons button {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+
+        .vocab-sidebar-buttons button:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Iconos para los botones */
+        .icon-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            #vocab-sidebar {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Interfaz Principal -->
+    <div class="container">
+        <div class="card">
+            <div class="info-icon" id="manual-icon">📘</div>
+            <h1>Reproductor con Subtítulos y Vocabulario</h1>
+            <p>Selecciona tu video y archivos de subtítulos</p>
+            <form>
+                <label for="video">
+                    <span>🎥 Video (mp4)</span>
+                    <input type="file" id="video" accept=".mp4">
+                </label>
+                <label for="subtitles-german">
+                    <span>📝 Subtítulos en Alemán (srt)</span>
+                    <input type="file" id="subtitles-german" accept=".srt">
+                </label>
+                <label for="subtitles-spanish">
+                    <span>📝 Explicaciones en Español (srt)</span>
+                    <input type="file" id="subtitles-spanish" accept=".srt">
+                </label>
+                <button type="button" id="play-button">▶️ Reproducir</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor del video y subtítulos -->
+    <div id="video-container">
+        <!-- Botones dentro del video -->
+        <button class="back-to-menu" id="back-to-menu">🏠</button>
+        <div class="video-container-controls">
+            <button id="dark-mode-toggle-video">🌙</button>
+            <button id="instructions-toggle-video">📜</button>
+            <button id="fullscreen-toggle-video">🔳</button>
+            <button id="play-pause-toggle-video">⏸️</button>
+        </div>
+        <video id="video-player" controls></video>
+        <div id="subtitle-box">
+            <div id="subtitle-german"></div>
+            <div id="subtitle-spanish"></div>
+        </div>
+    </div>
+
+    <!-- Barra Lateral para Vocabulario -->
+    <div id="vocab-sidebar">
+        <button id="close-vocab-sidebar">&times;</button>
+        <h2>Vocabulario</h2>
+        <ul id="vocab-list">
+            <!-- Palabras seleccionadas aparecerán aquí -->
+        </ul>
+        <div class="vocab-sidebar-buttons">
+            <button id="clear-vocab" title="Limpiar Vocabulario">
+                🗑️ Limpiar
+            </button>
+            <button id="download-vocab" title="Descargar Vocabulario">
+                📄 Descargar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal" id="manual-modal">
+        <div class="modal-header">Manual de Usuario</div>
+        <p>
+            1. Carga un archivo de video en formato MP4.<br>
+            2. Carga un archivo de subtítulos en Alemán en formato SRT.<br>
+            3. Carga un archivo de explicaciones en Español en formato SRT.<br>
+            4. Haz clic en "▶️ Reproducir" para comenzar.<br>
+            5. Utiliza los botones para alternar entre modo claro/oscuro, pantalla completa y pausar/reproducir.<br>
+            6. Haz clic en las palabras en los subtítulos en Alemán para añadirlas a tu lista de vocabulario. <br>
+            7. **Seleccionar Frases**: Haz doble clic en una palabra para seleccionar toda la frase.<br>
+            8. **Seleccionar Frases mediante Arrastre**: Presiona y mantén el botón del ratón sobre una palabra y arrastra sobre otras palabras para seleccionar una frase completa.
+        </p>
+        <button class="modal-close" id="close-modal">Cerrar</button>
+    </div>
+
+    <script>
+        // Elementos del DOM
+        const darkModeToggleVideo = document.getElementById('dark-mode-toggle-video');
+        const instructionsToggleVideo = document.getElementById('instructions-toggle-video');
+        const fullscreenToggleVideo = document.getElementById('fullscreen-toggle-video');
+        const playPauseToggleVideo = document.getElementById('play-pause-toggle-video');
+        const playButton = document.getElementById('play-button');
+        const backToMenuButton = document.getElementById('back-to-menu');
+
+        const body = document.body;
+
+        const manualIcon = document.getElementById('manual-icon');
+        const modal = document.getElementById('manual-modal');
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const closeModal = document.getElementById('close-modal');
+
+        const videoInput = document.getElementById('video');
+        const subtitlesGermanInput = document.getElementById('subtitles-german');
+        const subtitlesSpanishInput = document.getElementById('subtitles-spanish');
+        const videoContainer = document.getElementById('video-container');
+        const videoPlayer = document.getElementById('video-player');
+        const subtitleGermanBox = document.getElementById('subtitle-german');
+        const subtitleSpanishBox = document.getElementById('subtitle-spanish');
+
+        // Barra Lateral de Vocabulario
+        const vocabSidebar = document.getElementById('vocab-sidebar');
+        const closeVocabSidebarButton = document.getElementById('close-vocab-sidebar');
+        const vocabList = document.getElementById('vocab-list');
+        const clearVocabButton = document.getElementById('clear-vocab');
+        const downloadVocabButton = document.getElementById('download-vocab');
+
+        // Variables de estado
+        let subtitlesGerman = [];
+        let subtitlesSpanish = [];
+        let isPlaying = false;
+        let vocab = new Set(); // Usar Set para evitar duplicados
+        let selectedWords = new Set(); // Para manejar selección múltiple
+        let isSelecting = false;
+        let selectionStart = null;
+        let selectionEnd = null;
+        let selectedWordsDuringDrag = new Set();
+
+        // IndexedDB
+        let db;
+        const dbName = 'VideoPlayerDB';
+        const storeName = 'videos';
+
+        // Inicializar IndexedDB
+        function initDB() {
+            const request = indexedDB.open(dbName, 1);
+
+            request.onerror = function(event) {
+                console.error('Error al abrir IndexedDB:', event.target.errorCode);
+            };
+
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                checkStoredVideo();
+            };
+
+            request.onupgradeneeded = function(event) {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains(storeName)) {
+                    const objectStore = db.createObjectStore(storeName, { keyPath: 'fileName' });
+                    objectStore.createIndex('fileName', 'fileName', { unique: true });
+                }
+            };
+        }
+
+        // Función para guardar video y subtítulos en IndexedDB
+        function saveVideoData(fileName, videoBlob, subtitlesGermanBlob, subtitlesSpanishBlob, currentTime) {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const objectStore = transaction.objectStore(storeName);
+            const data = {
+                fileName,
+                videoBlob,
+                subtitlesGermanBlob,
+                subtitlesSpanishBlob,
+                currentTime
+            };
+            const request = objectStore.put(data);
+
+            request.onsuccess = function() {
+                console.log('Video y subtítulos guardados correctamente.');
+            };
+
+            request.onerror = function(event) {
+                console.error('Error al guardar los datos:', event.target.error);
+            };
+        }
+
+        // Función para obtener video y subtítulos desde IndexedDB
+        function getVideoData(fileName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readonly');
+                const objectStore = transaction.objectStore(storeName);
+                const request = objectStore.get(fileName);
+
+                request.onsuccess = function(event) {
+                    resolve(event.target.result);
+                };
+
+                request.onerror = function(event) {
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        // Función para eliminar video y subtítulos desde IndexedDB
+        function deleteVideoData(fileName) {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.delete(fileName);
+
+            request.onsuccess = function() {
+                console.log('Datos eliminados correctamente.');
+            };
+
+            request.onerror = function(event) {
+                console.error('Error al eliminar los datos:', event.target.error);
+            };
+        }
+
+        // Generar una clave única basada en el nombre del archivo de video
+        function generateVideoKey(fileName) {
+            return `video-progress-${fileName}`;
+        }
+
+        // Función para formatear el tiempo en formato HH:MM:SS
+        function formatTime(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }
+
+        function pad(num) {
+            return num.toString().padStart(2, '0');
+        }
+
+        // Alternar modo oscuro (desde la interfaz de video)
+        darkModeToggleVideo.addEventListener('click', () => {
+            body.classList.toggle('light-mode');
+        });
+
+        // Mostrar instrucciones (desde la interfaz de video)
+        instructionsToggleVideo.addEventListener('click', () => {
+            toggleVocabSidebar();
+        });
+
+        // Alternar pantalla completa (desde la interfaz de video)
+        fullscreenToggleVideo.addEventListener('click', () => {
+            toggleFullscreen();
+        });
+
+        // Función para alternar pantalla completa
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error al entrar en pantalla completa: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Alternar pausa/reproducción (desde la interfaz de video)
+        playPauseToggleVideo.addEventListener('click', () => {
+            togglePlayPause();
+        });
+
+        // Función para alternar pausa/reproducción
+        function togglePlayPause() {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+                playPauseToggleVideo.textContent = '⏸️';
+            } else {
+                videoPlayer.pause();
+                playPauseToggleVideo.textContent = '▶️';
+            }
+        }
+
+        // Mostrar modal
+        manualIcon.addEventListener('click', () => {
+            modal.style.display = 'block';
+            modalBackdrop.style.display = 'block';
+        });
+
+        // Cerrar modal
+        closeModal.addEventListener('click', () => {
+            modal.style.display = 'none';
+            modalBackdrop.style.display = 'none';
+        });
+
+        modalBackdrop.addEventListener('click', () => {
+            modal.style.display = 'none';
+            modalBackdrop.style.display = 'none';
+        });
+
+        // Volver al menú de carga de archivos
+        backToMenuButton.addEventListener('click', () => {
+            // Pausar el video
+            videoPlayer.pause();
+
+            // Ocultar el contenedor del video
+            videoContainer.style.display = 'none';
+
+            // Mostrar la interfaz principal
+            document.querySelector('.container').style.display = 'block';
+
+            // Ocultar el botón de volver al menú
+            backToMenuButton.style.display = 'none';
+        });
+
+        // Barra Lateral de Vocabulario: cerrar la barra lateral
+        closeVocabSidebarButton.addEventListener('click', () => {
+            toggleVocabSidebar();
+        });
+
+        // Función para alternar la visibilidad de la barra lateral de vocabulario
+        function toggleVocabSidebar() {
+            vocabSidebar.classList.toggle('visible');
+        }
+
+        // Reproducir video con subtítulos
+        playButton.addEventListener('click', () => {
+            const videoFile = videoInput.files[0];
+            const subtitlesGermanFile = subtitlesGermanInput.files[0];
+            const subtitlesSpanishFile = subtitlesSpanishInput.files[0];
+
+            if (!videoFile || !subtitlesGermanFile || !subtitlesSpanishFile) {
+                alert('Por favor, selecciona un archivo de video y ambos archivos de subtítulos.');
+                return;
+            }
+
+            const videoKey = generateVideoKey(videoFile.name);
+
+            // Crear objetos Blob para almacenar en IndexedDB
+            const videoBlob = videoFile;
+            const subtitlesGermanBlob = subtitlesGermanFile;
+            const subtitlesSpanishBlob = subtitlesSpanishFile;
+
+            // Guardar archivos en IndexedDB
+            saveVideoData(videoFile.name, videoBlob, subtitlesGermanBlob, subtitlesSpanishBlob, 0);
+
+            // Cargar video
+            const videoURL = URL.createObjectURL(videoBlob);
+            videoPlayer.src = videoURL;
+
+            // Cargar subtítulos en Alemán
+            const subtitleGermanReader = new FileReader();
+            subtitleGermanReader.onload = function(e) {
+                const srtContent = e.target.result;
+                subtitlesGerman = parseSRT(srtContent);
+            };
+            subtitleGermanReader.readAsText(subtitlesGermanBlob);
+
+            // Cargar subtítulos en Español
+            const subtitleSpanishReader = new FileReader();
+            subtitleSpanishReader.onload = function(e) {
+                const srtContent = e.target.result;
+                subtitlesSpanish = parseSRT(srtContent);
+            };
+            subtitleSpanishReader.readAsText(subtitlesSpanishBlob);
+
+            // Mostrar el contenedor del video
+            videoContainer.style.display = 'block';
+            videoContainer.requestFullscreen();
+
+            // Ocultar la interfaz principal
+            document.querySelector('.container').style.display = 'none';
+
+            // Reproducir video
+            videoPlayer.play();
+            isPlaying = true;
+            playPauseToggleVideo.textContent = '⏸️';
+
+            // Mostrar el botón de volver al menú
+            backToMenuButton.style.display = 'flex';
+
+            // Actualizar subtítulos y guardar progreso
+            videoPlayer.addEventListener('timeupdate', updateSubtitles);
+            videoPlayer.addEventListener('timeupdate', saveProgress);
+        });
+
+        // Actualizar subtítulos
+        let lastSubtitleGerman = null;
+
+        function updateSubtitles() {
+            const currentTime = videoPlayer.currentTime;
+            const currentSubtitleGerman = subtitlesGerman.find(subtitle => currentTime >= subtitle.start && currentTime <= subtitle.end);
+            const currentSubtitleSpanish = subtitlesSpanish.find(subtitle => currentTime >= subtitle.start && currentTime <= subtitle.end);
+
+            if (currentSubtitleGerman !== lastSubtitleGerman) {
+                // Actualizar subtítulos en Alemán con palabras clickeables
+                if (currentSubtitleGerman) {
+                    // Dividir la frase en oraciones para permitir la selección de frases completas
+                    // Utilizamos un delimitador común como '.' para separar las oraciones
+                    const sentences = currentSubtitleGerman.text.split('.').map(s => s.trim()).filter(s => s.length > 0);
+                    // Cada oración se envuelve en un contenedor con clase 'clickable-sentence'
+                    const clickableSentences = sentences.map(sentence => {
+                        const words = sentence.split(' ').map(word => word.trim()).filter(word => word.length > 0);
+                        const clickableWords = words.map(word => `<span class="clickable-word">${word}</span>`).join(' ');
+                        return `<span class="clickable-sentence">${clickableWords}.</span>`;
+                    }).join(' <br> '); // Separar las frases con saltos de línea
+                    subtitleGermanBox.innerHTML = clickableSentences;
+                } else {
+                    subtitleGermanBox.textContent = '';
+                }
+                lastSubtitleGerman = currentSubtitleGerman;
+            }
+
+            // Actualizar subtítulos en Español
+            subtitleSpanishBox.textContent = currentSubtitleSpanish ? currentSubtitleSpanish.text : '';
+        }
+
+        // Guardar progreso en IndexedDB
+        function saveProgress() {
+            const videoFile = videoInput.files[0];
+            if (videoFile) {
+                const videoKey = generateVideoKey(videoFile.name);
+                const transaction = db.transaction([storeName], 'readwrite');
+                const objectStore = transaction.objectStore(storeName);
+                const request = objectStore.get(videoFile.name);
+
+                request.onsuccess = function(event) {
+                    const data = event.target.result;
+                    if (data) {
+                        data.currentTime = videoPlayer.currentTime;
+                        objectStore.put(data);
+                    }
+                };
+
+                request.onerror = function(event) {
+                    console.error('Error al guardar el progreso:', event.target.error);
+                };
+            }
+        }
+
+        // Parsear archivo SRT
+        function parseSRT(data) {
+            const regex = /(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+([\s\S]*?)(?=\n\n|\n*$)/g;
+            let result;
+            const subtitles = [];
+
+            while ((result = regex.exec(data)) !== null) {
+                const start = timeStringToSeconds(result[2]);
+                const end = timeStringToSeconds(result[3]);
+                const text = result[4].replace(/\n/g, ' ');
+                subtitles.push({ start, end, text });
+            }
+            return subtitles;
+        }
+
+        // Convertir tiempo SRT a segundos
+        function timeStringToSeconds(timeString) {
+            const parts = timeString.split(':');
+            const secondsParts = parts[2].split(',');
+            const hours = parseInt(parts[0], 10);
+            const minutes = parseInt(parts[1], 10);
+            const seconds = parseInt(secondsParts[0], 10);
+            const milliseconds = parseInt(secondsParts[1], 10);
+
+            return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+        }
+
+        // Verificar si hay un video almacenado y cargarlo automáticamente
+        async function checkStoredVideo() {
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = async function(event) {
+                const videos = event.target.result;
+                if (videos.length > 0) {
+                    const savedVideo = videos[0]; // Asumimos un video guardado
+                    const resume = confirm(`Has visto el video "${savedVideo.fileName}" hasta ${formatTime(savedVideo.currentTime)}. ¿Deseas reanudar desde allí?`);
+                    if (resume) {
+                        // Cargar video desde Blob
+                        const videoURL = URL.createObjectURL(savedVideo.videoBlob);
+                        videoPlayer.src = videoURL;
+
+                        // Cargar subtítulos en Alemán desde Blob
+                        const subtitleGermanReader = new FileReader();
+                        subtitleGermanReader.onload = function(e) {
+                            const srtContent = e.target.result;
+                            subtitlesGerman = parseSRT(srtContent);
+                        };
+                        subtitleGermanReader.readAsText(savedVideo.subtitlesGermanBlob);
+
+                        // Cargar subtítulos en Español desde Blob
+                        const subtitleSpanishReader = new FileReader();
+                        subtitleSpanishReader.onload = function(e) {
+                            const srtContent = e.target.result;
+                            subtitlesSpanish = parseSRT(srtContent);
+                        };
+                        subtitleSpanishReader.readAsText(savedVideo.subtitlesSpanishBlob);
+
+                        // Mostrar el contenedor del video
+                        videoContainer.style.display = 'block';
+
+                        // Ocultar la interfaz principal
+                        document.querySelector('.container').style.display = 'none';
+
+                        // Reproducir video y saltar al tiempo guardado
+                        videoPlayer.currentTime = savedVideo.currentTime;
+                        videoPlayer.play();
+                        isPlaying = true;
+                        playPauseToggleVideo.textContent = '⏸️';
+
+                        // Mostrar el botón de volver al menú
+                        backToMenuButton.style.display = 'flex';
+
+                        // Solicitar pantalla completa
+                        videoContainer.requestFullscreen();
+
+                        // Actualizar subtítulos y guardar progreso
+                        videoPlayer.addEventListener('timeupdate', updateSubtitles);
+                        videoPlayer.addEventListener('timeupdate', saveProgress);
+                    } else {
+                        // Si el usuario no desea reanudar, eliminar los datos guardados
+                        deleteVideoData(savedVideo.fileName);
+                    }
+                }
+            };
+
+            request.onerror = function(event) {
+                console.error('Error al obtener datos de IndexedDB:', event.target.error);
+            };
+        }
+
+        // Inicializar IndexedDB al cargar la página
+        window.addEventListener('load', initDB);
+
+        // Limpiar progreso cuando el video termina
+        videoPlayer.addEventListener('ended', () => {
+            const videoFile = videoInput.files[0];
+            if (videoFile) {
+                deleteVideoData(videoFile.name);
+            }
+            // Ocultar el botón de volver al menú
+            backToMenuButton.style.display = 'none';
+        });
+
+        // Limpiar progreso cuando el usuario cierra el video
+        window.addEventListener('beforeunload', () => {
+            const videoFile = videoInput.files[0];
+            if (videoFile) {
+                saveProgress();
+            }
+        });
+
+        // Manejar clic en palabras/frases de los subtítulos en Alemán
+        subtitleGermanBox.addEventListener('click', (event) => {
+            if (event.target.classList.contains('clickable-word')) {
+                const word = event.target.textContent.trim();
+                if (word.length > 0) {
+                    toggleWordSelection(event.target, word);
+                }
+            }
+        });
+
+        // Manejar doble clic en frases completas
+        subtitleGermanBox.addEventListener('dblclick', (event) => {
+            if (event.target.classList.contains('clickable-sentence') || event.target.classList.contains('clickable-word')) {
+                // Obtener la frase completa
+                let sentenceText = '';
+                if (event.target.classList.contains('clickable-sentence')) {
+                    sentenceText = event.target.innerText.trim();
+                } else if (event.target.classList.contains('clickable-word')) {
+                    // Si el doble clic se hizo en una palabra, intentar obtener la frase completa
+                    const sentenceElement = event.target.closest('.clickable-sentence');
+                    if (sentenceElement) {
+                        sentenceText = sentenceElement.innerText.trim();
+                    }
+                }
+                if (sentenceText.length > 0) {
+                    toggleSentenceSelection(sentenceElement, sentenceText);
+                }
+            }
+        });
+
+        // Manejar clic en palabras/frases del vocabulario para eliminarlas
+        vocabList.addEventListener('click', (event) => {
+            if (event.target.tagName === 'LI') {
+                const item = event.target.textContent.trim();
+                selectedWords.delete(item);
+                vocab.delete(item);
+                event.target.remove();
+
+                // Desmarcar la palabra/frase en los subtítulos si está visible
+                const wordsInSubtitles = document.querySelectorAll('.clickable-word');
+                wordsInSubtitles.forEach(el => {
+                    if (el.textContent.trim() === item) {
+                        el.classList.remove('selected');
+                    }
+                });
+
+                const sentencesInSubtitles = document.querySelectorAll('.clickable-sentence');
+                sentencesInSubtitles.forEach(el => {
+                    if (el.innerText.trim() === item) {
+                        el.classList.remove('selected');
+                    }
+                });
+            }
+        });
+
+        // Botón para limpiar toda la lista de vocabulario
+        clearVocabButton.addEventListener('click', () => {
+            if (confirm('¿Estás seguro de que deseas limpiar toda la lista de vocabulario?')) {
+                selectedWords.clear();
+                updateVocabList();
+                // Desmarcar todas las palabras y frases en los subtítulos
+                const wordsInSubtitles = document.querySelectorAll('.clickable-word');
+                wordsInSubtitles.forEach(el => {
+                    el.classList.remove('selected');
+                    el.classList.remove('hovered');
+                });
+
+                const sentencesInSubtitles = document.querySelectorAll('.clickable-sentence');
+                sentencesInSubtitles.forEach(el => {
+                    el.classList.remove('selected');
+                });
+            }
+        });
+
+        // Botón para descargar la lista de vocabulario como .txt
+        downloadVocabButton.addEventListener('click', () => {
+            if (selectedWords.size === 0) {
+                alert('La lista de vocabulario está vacía.');
+                return;
+            }
+
+            let vocabText = '';
+            selectedWords.forEach(item => {
+                vocabText += item + '\n';
+            });
+
+            const blob = new Blob([vocabText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'vocabulario.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Manejar clic en palabras/frases de los subtítulos en Alemán
+        subtitleGermanBox.addEventListener('click', (event) => {
+            if (event.target.classList.contains('clickable-word')) {
+                const word = event.target.textContent.trim();
+                if (word.length > 0) {
+                    toggleWordSelection(event.target, word);
+                }
+            }
+        });
+
+        // Manejar doble clic en frases completas
+        subtitleGermanBox.addEventListener('dblclick', (event) => {
+            if (event.target.classList.contains('clickable-sentence') || event.target.classList.contains('clickable-word')) {
+                // Obtener la frase completa
+                let sentenceText = '';
+                let sentenceElement = null;
+                if (event.target.classList.contains('clickable-sentence')) {
+                    sentenceText = event.target.innerText.trim();
+                    sentenceElement = event.target;
+                } else if (event.target.classList.contains('clickable-word')) {
+                    // Si el doble clic se hizo en una palabra, intentar obtener la frase completa
+                    sentenceElement = event.target.closest('.clickable-sentence');
+                    if (sentenceElement) {
+                        sentenceText = sentenceElement.innerText.trim();
+                    }
+                }
+                if (sentenceText.length > 0 && sentenceElement) {
+                    toggleSentenceSelection(sentenceElement, sentenceText);
+                }
+            }
+        });
+
+        // Función para alternar selección de una palabra
+        function toggleWordSelection(element, word) {
+            if (selectedWords.has(word)) {
+                selectedWords.delete(word);
+                element.classList.remove('selected');
+            } else {
+                selectedWords.add(word);
+                element.classList.add('selected');
+            }
+            updateVocabList();
+        }
+
+        // Función para alternar selección de una frase completa
+        function toggleSentenceSelection(element, sentence) {
+            if (selectedWords.has(sentence)) {
+                selectedWords.delete(sentence);
+                element.classList.remove('selected');
+            } else {
+                selectedWords.add(sentence);
+                element.classList.add('selected');
+            }
+            updateVocabList();
+        }
+
+        // Función para actualizar la lista de vocabulario
+        function updateVocabList() {
+            // Limpiar la lista actual
+            vocabList.innerHTML = '';
+
+            // Añadir todas las palabras/frases seleccionadas
+            selectedWords.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                vocabList.appendChild(li);
+            });
+        }
+
+        // Selección por arrastre
+        // Evento de mousedown para iniciar la selección por arrastre
+        subtitleGermanBox.addEventListener('mousedown', (event) => {
+            if (event.target.classList.contains('clickable-word')) {
+                isSelecting = true;
+                clearDragSelection();
+                const wordElement = event.target;
+                selectionStart = wordElement;
+                selectionEnd = wordElement;
+                selectedWordsDuringDrag.add(wordElement);
+                wordElement.classList.add('hovered');
+                event.preventDefault(); // Prevenir selección de texto
+            }
+        });
+
+        // Evento de mouseover para seleccionar palabras durante arrastre
+        subtitleGermanBox.addEventListener('mouseover', (event) => {
+            if (isSelecting && event.target.classList.contains('clickable-word')) {
+                const wordElement = event.target;
+                if (!selectedWordsDuringDrag.has(wordElement)) {
+                    selectedWordsDuringDrag.add(wordElement);
+                    wordElement.classList.add('hovered');
+                    selectionEnd = wordElement;
+                }
+            }
+        });
+
+        // Evento de mouseup para finalizar la selección por arrastre
+        document.addEventListener('mouseup', (event) => {
+            if (isSelecting) {
+                isSelecting = false;
+                if (selectedWordsDuringDrag.size > 0) {
+                    // Ordenar las palabras seleccionadas en el orden del DOM
+                    const wordsArray = Array.from(selectedWordsDuringDrag);
+                    wordsArray.sort((a, b) => {
+                        return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+                    });
+                    const phrase = wordsArray.map(word => word.textContent.trim()).join(' ');
+                    addPhraseToVocab(phrase);
+                    // Limpiar la selección visual
+                    clearDragSelection();
+                }
+            }
+        });
+
+        // Función para limpiar selección durante arrastre
+        function clearDragSelection() {
+            selectedWordsDuringDrag.forEach(word => {
+                word.classList.remove('hovered');
+            });
+            selectedWordsDuringDrag.clear();
+        }
+
+        // Función para añadir una frase al vocabulario
+        function addPhraseToVocab(phrase) {
+            if (!vocab.has(phrase)) {
+                vocab.add(phrase);
+                selectedWords.add(phrase);
+                updateVocabList();
+            }
+        }
+
+        // Prevenir la selección de texto durante la acción de arrastre
+        subtitleGermanBox.addEventListener('dragstart', (event) => {
+            event.preventDefault();
+        });
+    </script>
+</body>
+</html>
